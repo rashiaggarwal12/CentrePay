@@ -19,9 +19,11 @@ from .serializers import (
     InvoiceCancelSerializer,
     InvoiceDetailSerializer,
     InvoiceListSerializer,
+    InvoicePreviewSerializer,
     InvoiceWriteSerializer,
     ServiceSerializer,
 )
+from .timeline import invoice_timeline
 
 
 class ServiceViewSet(CentreScopedMixin, viewsets.ReadOnlyModelViewSet):
@@ -56,7 +58,7 @@ class InvoiceViewSet(
         if self.action != "list":
             qs = qs.prefetch_related(
                 "items",
-                "payments",
+                "payments__refunds",
                 "payment_attempts",
                 "refunds__requested_by__user",
                 "refunds__approved_by__user",
@@ -164,3 +166,42 @@ class InvoiceViewSet(
             PaymentSerializer(payment).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )
+
+    @action(detail=False, methods=["post"])
+    def preview(self, request):
+        """Totals for a would-be invoice, without saving anything. The app calls this as
+        staff pick services, so it can show a live total without computing money itself."""
+        serializer = InvoicePreviewSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        lines = serializer.lines()
+        totals = services.compute_totals(
+            [(line.qty, line.service.price_paise, line.service.gst_rate_bps) for line in lines],
+            serializer.validated_data["discount_paise"],
+        )
+        return Response(
+            {
+                "subtotal_paise": totals.subtotal_paise,
+                "discount_paise": totals.discount_paise,
+                "tax_paise": totals.tax_paise,
+                "total_paise": totals.total_paise,
+                "lines": [
+                    {
+                        "service": line.service.pk,
+                        "description": line.description or line.service.name,
+                        "qty": line.qty,
+                        "unit_price_paise": line.service.price_paise,
+                        "gst_rate_bps": line.service.gst_rate_bps,
+                        "line_total_paise": lt.line_total_paise,
+                        "discount_paise": lt.discount_paise,
+                        "tax_paise": lt.tax_paise,
+                    }
+                    for line, lt in zip(lines, totals.lines, strict=True)
+                ],
+            }
+        )
+
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, pk=None):
+        return Response(invoice_timeline(self.get_object()))

@@ -19,6 +19,8 @@ class PaymentAttemptSerializer(serializers.ModelSerializer):
 
 
 class PaymentSerializer(serializers.ModelSerializer):
+    refundable_paise = serializers.SerializerMethodField()
+
     class Meta:
         model = Payment
         fields = [
@@ -29,9 +31,22 @@ class PaymentSerializer(serializers.ModelSerializer):
             "status",
             "captured_at",
             "error_description",
+            "refundable_paise",
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_refundable_paise(self, payment) -> int:
+        """What a new refund request may still ask for (pending refunds already count),
+        so the app never has to work it out itself."""
+        if payment.status != Payment.Status.CAPTURED:
+            return 0
+        reserved = sum(
+            r.amount_paise
+            for r in payment.refunds.all()  # uses the prefetch on the invoice detail
+            if r.status in Refund.RESERVING_STATUSES
+        )
+        return payment.amount_paise - reserved
 
 
 class CollectSerializer(serializers.Serializer):

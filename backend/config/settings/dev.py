@@ -21,3 +21,6 @@ CELERY_TASK_ALWAYS_EAGER = not os.environ.get("REDIS_URL")
 PAYMENT_GATEWAY = os.environ.get("PAYMENT_GATEWAY") or (
     "razorpay" if os.environ.get("RAZORPAY_KEY_ID") else "fake"
 )
+
+# Let the Expo web build (a different port) call the API during development.
+MIDDLEWARE = ["apps.common.dev_cors.DevCorsMiddleware", *MIDDLEWARE]  # noqa: F405

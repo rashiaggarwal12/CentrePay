@@ -12,7 +12,7 @@ design, [docs/decisions.md](docs/decisions.md) for why things are the way they a
 | 1 | Models, auth & roles, customers, services, invoices, state machine | ✅ done |
 | 2 | Payment links + webhook receive/process | ✅ done |
 | 3 | Refunds, ledger, reconciliation, audit log, day-close report | ✅ done (all 13 edge cases tested) |
-| 4 | React Native app | ⏳ |
+| 4 | React Native (Expo) staff app, all 8 screens | ✅ done (see [mobile/README.md](mobile/README.md)) |
 | 5 | Deploy, Sentry, README | ⏳ (CI, Docker, seed scaffolded) |
 
 ## Run locally

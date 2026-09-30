@@ -135,6 +135,14 @@ class InvoiceWriteSerializer(serializers.Serializer):
         return [InvoiceLineWriteSerializer.to_line(item) for item in items]
 
 
+class InvoicePreviewSerializer(serializers.Serializer):
+    items = InvoiceLineWriteSerializer(many=True, allow_empty=True)
+    discount_paise = serializers.IntegerField(min_value=0, required=False, default=0)
+
+    def lines(self) -> list[LineInput]:
+        return [InvoiceLineWriteSerializer.to_line(item) for item in self.validated_data["items"]]
+
+
 class InvoiceActionSerializer(serializers.Serializer):
     version = serializers.IntegerField(min_value=1, required=False)
 

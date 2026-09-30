@@ -147,3 +147,26 @@ Razorpay's arithmetic.
 Cash is a `Payment` with `method=cash` and an id derived from the Idempotency-Key, recorded
 through `apply_payment_captured`. It gets the same locking, ledger, state machine and audit as
 online payments. Reconciliation skips it because no gateway has a record of it.
+
+## A server-side preview endpoint for live invoice totals
+The new-invoice screen shows the total with GST as staff tap services. Computing it in the
+app would mean a second implementation of discount allocation and per-line GST rounding,
+which could drift from the server's. Instead the app calls `POST /invoices/preview/` (same
+`compute_totals`, nothing saved) on every change and shows the server's figure. It also
+gets `refundable_paise` on each payment, so the refund screen doesn't subtract either.
+
+## Idempotency keys belong to the user's intent, not the HTTP request
+The collect screen makes one key when it opens and reuses it for retries after a network
+error, so the server returns the same link. Only "Create new link" (after expiry) makes a
+new key. The same goes for recording cash. A `409 REQUEST_IN_PROGRESS` makes the app wait
+and ask again with the same key.
+
+## Polling, not push, for "paid"
+The collect screen re-fetches the invoice every 3 seconds and stops once it is paid. It's
+simple, works through any network, and the delay is at most one interval. Push
+(WebSockets or FCM) would add infrastructure for a saving of about 2 seconds.
+
+## The app finds the backend by itself in development
+In Expo Go, the app uses the dev server's host (`expoConfig.hostUri`) with port 8000, so a
+phone on the same Wi-Fi reaches the laptop's Django without configuration.
+`EXPO_PUBLIC_API_URL` overrides it for release builds.
