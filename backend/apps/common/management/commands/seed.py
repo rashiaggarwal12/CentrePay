@@ -2,8 +2,15 @@
 
 python manage.py seed            # idempotent; safe to run twice
 Logins: <centre code lowercased>_desk / <code>_manager, password "centrepay123"
+
+The `admin` superuser gets the demo password only when DEBUG is on. On a public
+deployment set SEED_ADMIN_PASSWORD, or no superuser is created (a well-known admin
+password on a public URL would hand out the whole Django Admin).
 """
 
+import os
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
@@ -44,8 +51,15 @@ class Command(BaseCommand):
     @transaction.atomic
     def handle(self, *args, **options):
         User = get_user_model()
-        if not User.objects.filter(username="admin").exists():
-            User.objects.create_superuser("admin", "admin@example.com", DEMO_PASSWORD)
+        admin_password = os.environ.get("SEED_ADMIN_PASSWORD") or (
+            DEMO_PASSWORD if settings.DEBUG else None
+        )
+        if admin_password and not User.objects.filter(username="admin").exists():
+            User.objects.create_superuser("admin", "admin@example.com", admin_password)
+        elif not admin_password:
+            self.stdout.write(
+                "Skipping the admin superuser (set SEED_ADMIN_PASSWORD to create it)."
+            )
 
         for name, code, city in CENTRES:
             centre, _ = Centre.objects.get_or_create(

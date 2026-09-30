@@ -27,7 +27,15 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "organization": "YOUR_SENTRY_ORG",
+          "project": "centrepay-mobile"
+        }
+      ]
     ],
     "scheme": "centrepay"
   }

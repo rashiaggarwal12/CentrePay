@@ -1,4 +1,9 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  MutationCache,
+  QueryCache,
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
@@ -6,9 +11,14 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ApiError } from "@/api/client";
 import { AuthProvider } from "@/auth/AuthProvider";
+import { initSentry, reportError, wrap } from "@/lib/sentry";
+
+initSentry();
 
 function makeQueryClient() {
   return new QueryClient({
+    queryCache: new QueryCache({ onError: reportError }),
+    mutationCache: new MutationCache({ onError: reportError }),
     defaultOptions: {
       queries: {
         staleTime: 15_000,
@@ -21,7 +31,7 @@ function makeQueryClient() {
   });
 }
 
-export default function RootLayout() {
+function RootLayout() {
   const [queryClient] = useState(makeQueryClient);
   return (
     <SafeAreaProvider>
@@ -34,3 +44,5 @@ export default function RootLayout() {
     </SafeAreaProvider>
   );
 }
+
+export default wrap(RootLayout);

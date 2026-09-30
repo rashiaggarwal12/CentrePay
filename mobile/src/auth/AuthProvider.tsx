@@ -3,6 +3,7 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useS
 
 import { request, setSessionExpiredHandler } from "@/api/client";
 import type { Me } from "@/api/types";
+import { identify } from "@/lib/sentry";
 
 import { clearTokens, loadTokens, saveTokens, type Tokens } from "./tokenStore";
 
@@ -22,6 +23,10 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({ status: "loading" });
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    identify(state.status === "signedIn" ? state.me : null);
+  }, [state]);
 
   const signOut = useCallback(async () => {
     await clearTokens();
