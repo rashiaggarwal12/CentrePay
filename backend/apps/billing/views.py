@@ -5,7 +5,12 @@ from rest_framework.response import Response
 
 from apps.accounts.permissions import CentreScopedMixin
 from apps.payments import services as payment_services
-from apps.payments.serializers import CollectSerializer, PaymentAttemptSerializer
+from apps.payments.serializers import (
+    CashSerializer,
+    CollectSerializer,
+    PaymentAttemptSerializer,
+    PaymentSerializer,
+)
 
 from . import services
 from .models import Invoice, InvoiceStatus, Service
@@ -49,7 +54,14 @@ class InvoiceViewSet(
     def get_queryset(self):
         qs = super().get_queryset()
         if self.action != "list":
-            qs = qs.prefetch_related("items", "payments", "payment_attempts")
+            qs = qs.prefetch_related(
+                "items",
+                "payments",
+                "payment_attempts",
+                "refunds__requested_by__user",
+                "refunds__approved_by__user",
+                "refunds__payment",
+            )
         return qs
 
     def get_serializer_class(self):
@@ -133,5 +145,22 @@ class InvoiceViewSet(
         )
         return Response(
             PaymentAttemptSerializer(attempt).data,
+            status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"])
+    def cash(self, request, pk=None):
+        """Record cash taken at the desk. Idempotency-Key header required."""
+        invoice = self.get_object()
+        serializer = CashSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payment, created = payment_services.record_cash_payment(
+            invoice.pk,
+            staff=self.staff,
+            amount_paise=serializer.validated_data.get("amount_paise"),
+            idempotency_key=request.headers.get("Idempotency-Key", ""),
+        )
+        return Response(
+            PaymentSerializer(payment).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
         )

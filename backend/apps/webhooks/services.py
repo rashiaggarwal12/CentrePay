@@ -43,3 +43,25 @@ def record_failure(event_pk: int, exc: Exception) -> None:
     WebhookEvent.objects.filter(pk=event_pk).update(
         attempts=F("attempts") + 1, last_error=f"{type(exc).__name__}: {exc}"[:2000]
     )
+
+
+def give_up(event_pk: int, exc: Exception) -> None:
+    """Stop retrying an event whose dependency never showed up, and hand it to a human."""
+    from apps.reconciliation.services import Kind, raise_issue
+
+    with transaction.atomic():
+        event = WebhookEvent.objects.select_for_update().get(pk=event_pk)
+        if event.processed_at:
+            return
+        refund = (event.raw_payload.get("payload", {}).get("refund") or {}).get("entity") or {}
+        raise_issue(
+            Kind.REFUND_ORPHANED if refund else Kind.UNMATCHED_PAYMENT,
+            refund.get("id") or event.gateway_event_id,
+            local_ref=event.gateway_event_id,
+            actual_paise=refund.get("amount"),
+            details={"event_type": event.event_type, "error": str(exc)},
+        )
+        event.processed_at = timezone.now()
+        event.last_error = f"gave up: {exc}"[:2000]
+        event.save(update_fields=["processed_at", "last_error"])
+    logger.warning("webhook.gave_up event_id=%s error=%s", event.gateway_event_id, exc)

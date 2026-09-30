@@ -18,3 +18,4 @@ CELERY_TASK_EAGER_PROPAGATES = True
 RAZORPAY_KEY_ID = "rzp_test_dummykey"
 RAZORPAY_KEY_SECRET = "dummy-secret"  # noqa: S105
 RAZORPAY_WEBHOOK_SECRET = "test-webhook-secret"  # noqa: S105
+PAYMENT_GATEWAY = "razorpay"  # tests mock Razorpay's HTTP API; sandbox tests opt in

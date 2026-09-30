@@ -107,6 +107,70 @@ class RazorpayClient:
     def fetch_payment(self, payment_id: str) -> dict:
         return self._request("GET", f"/payments/{payment_id}")
 
+    def iter_payments(self, from_ts: int, to_ts: int, page_size: int = 100):
+        """All payments created in [from_ts, to_ts] (unix seconds), paginated."""
+        skip = 0
+        while True:
+            data = self._request(
+                "GET",
+                "/payments",
+                params={"from": from_ts, "to": to_ts, "count": page_size, "skip": skip},
+            )
+            items = data.get("items", [])
+            yield from items
+            if len(items) < page_size:
+                return
+            skip += page_size
 
-def get_gateway() -> RazorpayClient:
+    # --- Refunds ---
+
+    def create_refund(self, payment_id: str, *, amount_paise: int, receipt: str, notes: dict):
+        return self._request(
+            "POST",
+            f"/payments/{payment_id}/refund",
+            json={"amount": amount_paise, "speed": "normal", "receipt": receipt, "notes": notes},
+        )
+
+    def list_refunds(self, payment_id: str) -> list[dict]:
+        return self._request("GET", f"/payments/{payment_id}/refunds", params={"count": 100}).get(
+            "items", []
+        )
+
+    # --- Settlements ---
+
+    def settlement_recon(self, year: int, month: int, day: int) -> list[dict]:
+        """Every transaction settled on the given day, with its settlement id and fee."""
+        items, skip = [], 0
+        while True:
+            data = self._request(
+                "GET",
+                "/settlements/recon/combined",
+                params={"year": year, "month": month, "day": day, "count": 1000, "skip": skip},
+            )
+            page = data.get("items", [])
+            items.extend(page)
+            if len(page) < 1000:
+                return items
+            skip += 1000
+
+    def fetch_settlement(self, settlement_id: str) -> dict:
+        return self._request("GET", f"/settlements/{settlement_id}")
+
+
+# Used by the sandbox gateway when no real webhook secret is configured.
+SANDBOX_WEBHOOK_SECRET = "sandbox-webhook-secret"  # noqa: S105  (not a real secret)
+
+
+def get_gateway():
+    """The configured gateway: real Razorpay, or the local sandbox (PAYMENT_GATEWAY=fake)."""
+    if settings.PAYMENT_GATEWAY == "fake":
+        from apps.sandbox.gateway import FakeGateway
+
+        return FakeGateway()
     return RazorpayClient(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+
+
+def webhook_secret() -> str:
+    if settings.RAZORPAY_WEBHOOK_SECRET:
+        return settings.RAZORPAY_WEBHOOK_SECRET
+    return SANDBOX_WEBHOOK_SECRET if settings.PAYMENT_GATEWAY == "fake" else ""

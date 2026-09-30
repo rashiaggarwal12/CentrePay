@@ -16,3 +16,8 @@ if not os.environ.get("DATABASE_URL"):
 
 # Run Celery tasks inline when no broker is configured.
 CELERY_TASK_ALWAYS_EAGER = not os.environ.get("REDIS_URL")
+
+# No Razorpay keys yet? Use the local sandbox gateway so the whole flow still works.
+PAYMENT_GATEWAY = os.environ.get("PAYMENT_GATEWAY") or (
+    "razorpay" if os.environ.get("RAZORPAY_KEY_ID") else "fake"
+)

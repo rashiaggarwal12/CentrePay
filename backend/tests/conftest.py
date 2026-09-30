@@ -144,3 +144,51 @@ def make_draft(desk, customer, service):
         )
 
     return _make
+
+
+# --- Sandbox gateway -------------------------------------------------------------------------
+
+
+@pytest.fixture
+def sandbox(settings):
+    """Use the fake gateway: real code paths, with state in the sandbox tables."""
+    settings.PAYMENT_GATEWAY = "fake"
+    settings.PUBLIC_BASE_URL = "http://testserver"
+
+
+@pytest.fixture
+def sandbox_collect(sandbox, desk):
+    def _collect(invoice, amount_paise=None, staff=None):
+        attempt, _ = payments.collect(
+            invoice.pk,
+            staff=staff or desk,
+            idempotency_key=uuid.uuid4().hex,
+            amount_paise=amount_paise,
+        )
+        return attempt
+
+    return _collect
+
+
+@pytest.fixture
+def customer_pays(client, django_capture_on_commit_callbacks):
+    """Press a button on the sandbox payment page, as the customer would."""
+
+    def _pay(attempt, action="pay_upi"):
+        with django_capture_on_commit_callbacks(execute=True):
+            resp = client.post(f"/sandbox/pay/{attempt.gateway_link_id}/", {"action": action})
+        assert resp.status_code == 302, resp.content
+        return resp
+
+    return _pay
+
+
+@pytest.fixture
+def run_on_commit(django_capture_on_commit_callbacks):
+    """Run a callable and then its on_commit callbacks (Celery tasks, webhook deliveries)."""
+
+    def _run(fn, *args, **kwargs):
+        with django_capture_on_commit_callbacks(execute=True):
+            return fn(*args, **kwargs)
+
+    return _run

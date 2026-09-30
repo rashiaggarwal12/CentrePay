@@ -1,0 +1,63 @@
+{% extends "sandbox/base.html" %}
+{% block title %}Pay ₹{{ amount_rupees }}{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="muted">{{ link.description }}</div>
+  <p class="amount">₹{{ amount_rupees }}</p>
+  <span class="status {{ link.status }}">{{ link.status }}</span>
+</div>
+
+{% if result == "paid" %}
+  <div class="card"><div class="result ok">✓ Payment successful</div>
+    <p class="muted">
+      {% if scenario == "pay_lost_webhooks" %}
+        No webhook was sent. The invoice stays unpaid in CentrePay until the reconciliation
+        job finds this payment through the gateway API.
+      {% elif scenario == "pay_duplicate_webhooks" %}
+        Every webhook was delivered 3 times. CentrePay should still show one payment.
+      {% elif scenario == "pay_short" %}
+        ₹1 less than requested was paid, so CentrePay should flag an amount mismatch.
+      {% else %}
+        The staff app should now show the invoice as paid.
+      {% endif %}
+    </p>
+  </div>
+{% elif result == "failed" %}
+  <div class="card"><div class="result bad">✕ Payment failed</div>
+    <p class="muted">The customer can try again with this link.</p></div>
+{% endif %}
+
+{% if link.status == "created" %}
+<div class="card">
+  <form method="post">{% csrf_token %}
+    <button class="primary" name="action" value="pay_upi">Pay with UPI</button>
+    <button name="action" value="pay_card">Pay with card</button>
+    <button class="danger" name="action" value="fail">Payment fails</button>
+
+    <details>
+      <summary>Failure scenarios (for testing)</summary>
+      <button name="action" value="pay_duplicate_webhooks">Pay, webhooks delivered 3×
+        <small>Gateway retries: the same event arrives three times</small></button>
+      <button name="action" value="pay_lost_webhooks">Pay, webhooks never arrive
+        <small>Recovered by the reconciliation job</small></button>
+      <button name="action" value="pay_short">Pay ₹1 less than asked
+        <small>Raises an amount-mismatch issue</small></button>
+      <button name="action" value="expire">Expire this link now</button>
+    </details>
+  </form>
+</div>
+{% endif %}
+
+{% if payments %}
+<div class="card">
+  <strong>Payments on this link</strong>
+  <table>
+    <tr><th>ID</th><th>Method</th><th>Status</th></tr>
+    {% for p in payments %}
+      <tr><td>{{ p.id }}</td><td>{{ p.method }}</td><td>{{ p.status }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+<p class="muted"><a href="{% url 'sandbox_index' %}">All sandbox links</a></p>
+{% endblock %}

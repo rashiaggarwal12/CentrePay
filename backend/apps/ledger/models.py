@@ -19,6 +19,9 @@ class LedgerEntry(models.Model):
     payment = models.ForeignKey(
         "payments.Payment", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
     )
+    refund = models.ForeignKey(
+        "payments.Refund", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
     entry_type = models.CharField(max_length=20, choices=EntryType.choices)
     debit_paise = models.PositiveBigIntegerField(default=0)
     credit_paise = models.PositiveBigIntegerField(default=0)
@@ -39,6 +42,11 @@ class LedgerEntry(models.Model):
                 fields=["payment", "entry_type"],
                 condition=Q(entry_type="payment"),
                 name="uniq_ledger_credit_per_payment",
+            ),
+            models.UniqueConstraint(
+                fields=["refund", "entry_type"],
+                condition=Q(entry_type="refund"),
+                name="uniq_ledger_debit_per_refund",
             ),
         ]
 

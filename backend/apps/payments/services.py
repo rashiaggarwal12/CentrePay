@@ -208,6 +208,28 @@ def _from_unix(ts):
 # --- Applying gateway events -------------------------------------------------------------------
 
 
+def resolve_payment_target(payment: dict) -> tuple[int | None, PaymentAttempt | None]:
+    """Work out which invoice (and attempt) a gateway payment belongs to."""
+    known = (
+        Payment.objects.filter(gateway_payment_id=payment["id"])
+        .values_list("invoice_id", "attempt_id")
+        .first()
+    )
+    if known:
+        invoice_id, attempt_id = known
+        attempt = PaymentAttempt.objects.filter(pk=attempt_id).first() if attempt_id else None
+        return invoice_id, attempt
+
+    notes = payment.get("notes")
+    notes = notes if isinstance(notes, dict) else {}  # Razorpay sends [] when empty
+    attempt_id = notes.get("attempt_id")
+    if attempt_id and str(attempt_id).isdigit():
+        attempt = PaymentAttempt.objects.filter(pk=int(attempt_id)).first()
+        if attempt and str(attempt.invoice_id) == str(notes.get("invoice_id", attempt.invoice_id)):
+            return attempt.invoice_id, attempt
+    return None, None
+
+
 def apply_payment_captured(
     *,
     gateway_payment_id: str,
@@ -463,3 +485,42 @@ def cancel_open_links(invoice_id: int, *, only_exceeding_due: bool) -> int:
         if mark_attempt(attempt, PaymentAttempt.Status.CANCELLED):
             cancelled += 1
     return cancelled
+
+
+# --- Cash ----------------------------------------------------------------------------------------
+
+
+def record_cash_payment(
+    invoice_id: int, *, staff, amount_paise: int | None, idempotency_key: str
+) -> tuple[Payment, bool]:
+    """Cash taken at the desk. Uses the same idempotent path as gateway payments: the
+    Idempotency-Key becomes a deterministic payment id, so a retried request is a no-op."""
+    import hashlib
+
+    from .refunds import CASH_PREFIX
+
+    if not idempotency_key or len(idempotency_key) > 64:
+        raise BusinessValidationError("An Idempotency-Key header (max 64 chars) is required.")
+    digest = hashlib.sha256(f"{invoice_id}:{idempotency_key}".encode()).hexdigest()[:32]
+    payment_id = f"{CASH_PREFIX}{digest}"
+
+    existing = Payment.objects.filter(gateway_payment_id=payment_id).first()
+    if existing:
+        return existing, False
+
+    invoice = Invoice.objects.get(pk=invoice_id)
+    if invoice.status not in COLLECTABLE_STATUSES:
+        raise InvalidTransition(
+            f"Cannot collect payment on an invoice that is {invoice.get_status_display().lower()}."
+        )
+    due = invoice.amount_due_paise
+    amount = due if amount_paise is None else amount_paise
+    if amount <= 0 or amount > due:
+        raise BusinessValidationError(f"Cash amount must be between 1 and {due} paise.")
+
+    payment, applied = apply_payment_captured(
+        gateway_payment_id=payment_id, invoice_id=invoice_id, amount_paise=amount, method="cash"
+    )
+    if applied:
+        audit("payment.cash_recorded", payment, actor=staff.user)
+    return payment, applied

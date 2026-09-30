@@ -65,6 +65,11 @@ class PaymentGatewayNotConfigured(DomainError):
     default_detail = "Online payments are not configured on this server."
 
 
+class DependencyNotReady(Exception):  # noqa: N818
+    """An event references something we haven't recorded yet (e.g. a refund for a payment
+    whose webhook is still in flight). Not an API error: the webhook task retries later."""
+
+
 class BusinessValidationError(DomainError):
     status_code = status.HTTP_400_BAD_REQUEST
     default_code = "VALIDATION_ERROR"

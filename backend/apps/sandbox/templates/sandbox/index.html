@@ -1,0 +1,21 @@
+{% extends "sandbox/base.html" %}
+{% block content %}
+<div class="card">
+  <strong>Sandbox payment links</strong>
+  <p class="muted">What customers would open by scanning the QR. Open one to pay it from here.</p>
+  {% if links %}
+  <table>
+    <tr><th>Link</th><th>Amount</th><th>Status</th></tr>
+    {% for link in links %}
+      <tr>
+        <td><a href="{% url 'sandbox_pay' link.id %}">{{ link.description|default:link.id }}</a></td>
+        <td>₹{% widthratio link.amount 100 1 %}</td>
+        <td><span class="status {{ link.status }}">{{ link.status }}</span></td>
+      </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+    <p class="muted">No links yet. Tap “Collect” on an issued invoice.</p>
+  {% endif %}
+</div>
+{% endblock %}

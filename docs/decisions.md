@@ -104,3 +104,46 @@ methods. A `BEFORE UPDATE OR DELETE` trigger doesn't.
 Overpayments and amount mismatches are known the moment the webhook is processed, so they
 go into the `ReconciliationIssue` queue immediately. A partial unique index on
 (kind, gateway_ref) where status = open keeps retries from creating duplicates.
+
+## A sandbox gateway for local development, not just mocks in tests
+Razorpay asks for a PAN at sign-up, and reviewers of this project won't have keys. `FakeGateway`
+has the same methods as `RazorpayClient` and returns Razorpay-shaped data. It keeps its own
+state in separate tables, playing the part of Razorpay's database. It sends signed webhooks
+through the real `/webhooks/razorpay/` view; only the network hop is skipped. Everything
+downstream (signature check, dedup, Celery, idempotent services, reconciliation) is the real
+code. Setting `PAYMENT_GATEWAY=razorpay` and adding keys switches over with no code change. The
+sandbox pages return 404 unless the fake gateway is enabled.
+
+## Refunds need a manager, and pending refunds reserve the amount
+Front desk requests; a manager approves, or rejects with a note. A requested refund already
+counts against what's refundable, so two requests can't together exceed the payment. Money only
+moves once the gateway confirms: the ledger debit and `amount_refunded` are written in
+`apply_refund_processed`, which both the API response and the `refund.processed` webhook call.
+Cash refunds skip the gateway and are processed on approval.
+
+## Refunds carry a `receipt` for crash recovery
+This is the same idea as `reference_id` on payment links. If the refund call times out after
+Razorpay made the refund, the retry lists the payment's refunds and finds ours by receipt. Only
+if it isn't there does it create one, so a customer is never refunded twice.
+
+## Out-of-order events wait, then escalate
+A `refund.processed` for a payment we haven't recorded means the payment's webhook is behind.
+The handler raises `DependencyNotReady`. The task retries on a slower schedule (30s, doubling,
+capped at 10 min: about 45 min in total), then gives up and opens a `refund_orphaned` issue
+instead of retrying forever.
+
+## Reconciliation recovers through the same code as webhooks
+When the job finds a captured payment we missed, it calls `apply_payment_captured`, the same
+idempotent, locking function the webhook uses. There's no second "repair" implementation to
+keep correct. For payment-link payments it also asks the gateway about our open and expired
+links, so recovery works even if the gateway's payment doesn't carry our notes.
+
+## The settlement check uses our numbers, not the gateway's
+For each settlement, expected = Σ(our payment amount − our recorded fee) − Σ(our refunds).
+Comparing the gateway's settlement with the gateway's own line items would only check
+Razorpay's arithmetic.
+
+## Cash payments reuse the gateway payment path
+Cash is a `Payment` with `method=cash` and an id derived from the Idempotency-Key, recorded
+through `apply_payment_captured`. It gets the same locking, ledger, state machine and audit as
+online payments. Reconciliation skips it because no gateway has a record of it.

@@ -82,3 +82,52 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.gateway_payment_id} {self.amount_paise} ({self.status})"
+
+
+class Refund(models.Model):
+    """requested -> approved -> processing -> processed | failed, or requested -> rejected.
+
+    Front desk requests, a manager approves, a Celery task calls the gateway, and the
+    `refund.processed` webhook (or the API response, whichever lands first) finalises it.
+    """
+
+    class Status(models.TextChoices):
+        REQUESTED = "requested", "Requested"
+        APPROVED = "approved", "Approved"
+        PROCESSING = "processing", "Processing at gateway"
+        PROCESSED = "processed", "Processed"
+        FAILED = "failed", "Failed"
+        REJECTED = "rejected", "Rejected"
+
+    # Refunds in these states still count against the refundable amount.
+    RESERVING_STATUSES = (Status.REQUESTED, Status.APPROVED, Status.PROCESSING, Status.PROCESSED)
+
+    payment = models.ForeignKey(Payment, on_delete=models.PROTECT, related_name="refunds")
+    invoice = models.ForeignKey("billing.Invoice", on_delete=models.PROTECT, related_name="refunds")
+    gateway_refund_id = models.CharField(max_length=40, unique=True, null=True, blank=True)
+    # Sent to the gateway as `receipt`, so a retried call can find a refund it already made.
+    receipt = models.CharField(max_length=40, unique=True)
+    amount_paise = models.PositiveBigIntegerField()
+    reason = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.REQUESTED)
+    requested_by = models.ForeignKey(
+        "accounts.Staff", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )  # null = initiated outside CentrePay (e.g. the gateway dashboard)
+    approved_by = models.ForeignKey(
+        "accounts.Staff", null=True, blank=True, on_delete=models.PROTECT, related_name="+"
+    )
+    decision_note = models.CharField(max_length=255, blank=True)
+    decided_at = models.DateTimeField(null=True, blank=True)
+    processed_at = models.DateTimeField(null=True, blank=True)
+    last_error = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(condition=Q(amount_paise__gt=0), name="refund_amount_positive"),
+        ]
+
+    def __str__(self):
+        return f"Refund {self.pk} {self.amount_paise} ({self.status})"

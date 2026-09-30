@@ -3,11 +3,12 @@ import hmac
 import json
 import logging
 
-from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+
+from apps.payments.gateway import webhook_secret
 
 from .models import WebhookEvent
 from .tasks import process_webhook_event
@@ -29,7 +30,7 @@ def razorpay_webhook(request):
     retries (and eventually disables the webhook) if we don't answer quickly."""
     body = request.body  # raw bytes: the signature is over these exact bytes
     signature = request.headers.get("X-Razorpay-Signature", "")
-    if not verify_signature(body, signature, settings.RAZORPAY_WEBHOOK_SECRET):
+    if not verify_signature(body, signature, webhook_secret()):
         logger.warning("webhook.invalid_signature ip=%s", request.META.get("REMOTE_ADDR"))
         return HttpResponse(status=400)
 

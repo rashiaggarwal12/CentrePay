@@ -1,7 +1,11 @@
 from rest_framework import serializers
 
 from apps.customers.models import Customer
-from apps.payments.serializers import PaymentAttemptSerializer, PaymentSerializer
+from apps.payments.serializers import (
+    PaymentAttemptSerializer,
+    PaymentSerializer,
+    RefundSerializer,
+)
 
 from .models import Invoice, InvoiceItem, Service
 from .services import LineInput
@@ -79,12 +83,14 @@ class InvoiceDetailSerializer(InvoiceListSerializer):
     created_by = serializers.CharField(source="created_by.user.get_username", read_only=True)
     payments = PaymentSerializer(many=True, read_only=True)
     payment_attempts = PaymentAttemptSerializer(many=True, read_only=True)
+    refunds = RefundSerializer(many=True, read_only=True)
 
     class Meta(InvoiceListSerializer.Meta):
         fields = InvoiceListSerializer.Meta.fields + [
             "items",
             "payments",
             "payment_attempts",
+            "refunds",
             "subtotal_paise",
             "discount_paise",
             "tax_paise",

@@ -3,6 +3,7 @@ from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -42,6 +43,7 @@ INSTALLED_APPS = [
     "apps.payments",
     "apps.webhooks",
     "apps.reconciliation",
+    "apps.sandbox",
 ]
 
 MIDDLEWARE = [
@@ -126,10 +128,20 @@ CELERY_RESULT_BACKEND = None
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "reconcile-yesterday": {
+        "task": "apps.reconciliation.tasks.reconcile_day",
+        "schedule": crontab(hour=2, minute=0),  # 02:00 IST (CELERY_TIMEZONE)
+    },
+}
 
 RAZORPAY_KEY_ID = os.environ.get("RAZORPAY_KEY_ID", "")
 RAZORPAY_KEY_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "")
 RAZORPAY_WEBHOOK_SECRET = os.environ.get("RAZORPAY_WEBHOOK_SECRET", "")
+# "razorpay" (real API) or "fake" (local sandbox: fake payment page + signed webhooks).
+PAYMENT_GATEWAY = os.environ.get("PAYMENT_GATEWAY", "razorpay")
+# Where this server is reachable from a phone; used for sandbox payment-page links.
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "http://localhost:8000").rstrip("/")
 # Razorpay requires expire_by to be at least 15 minutes in the future.
 PAYMENT_LINK_EXPIRY_MINUTES = int(os.environ.get("PAYMENT_LINK_EXPIRY_MINUTES", "20"))
 

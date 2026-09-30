@@ -10,8 +10,8 @@ design, [docs/decisions.md](docs/decisions.md) for why things are the way they a
 | Week | Scope | State |
 |---|---|---|
 | 1 | Models, auth & roles, customers, services, invoices, state machine | ✅ done |
-| 2 | Payment links + webhook receive/process (edge cases 1–3, 8, 10, 12) | ✅ done (+ 5, 6, 9, 13) |
-| 3 | Refunds, reconciliation job, reports | ⏳ (ledger + issue queue already in) |
+| 2 | Payment links + webhook receive/process | ✅ done |
+| 3 | Refunds, ledger, reconciliation, audit log, day-close report | ✅ done (all 13 edge cases tested) |
 | 4 | React Native app | ⏳ |
 | 5 | Deploy, Sentry, README | ⏳ (CI, Docker, seed scaffolded) |
 
@@ -34,6 +34,17 @@ http://localhost:8000/admin/.
 
 Settings are read from `.env` at the repo root (copy `.env.example`).
 
+### Payments without a Razorpay account (sandbox)
+
+With no `RAZORPAY_KEY_ID` set, the dev server uses a **sandbox gateway**. "Collect" creates a
+link to a local payment page (`/sandbox/pay/<id>/`; all links are listed at
+http://localhost:8000/sandbox/), and pressing *Pay* sends properly signed webhooks through the
+real webhook endpoint. The page also has buttons for failure scenarios: duplicate webhooks,
+lost webhooks (then run `python manage.py reconcile --date <today>` to watch it recover),
+short payment, and expiry. Adding Razorpay test keys to `.env` switches to the real gateway
+with no code changes. To open the page from a phone on the same Wi-Fi, run
+`python manage.py runserver 0.0.0.0:8000` and set `PUBLIC_BASE_URL=http://<your-LAN-IP>:8000`.
+
 ### Postgres without Docker (Windows)
 
 ```bash
@@ -51,10 +62,16 @@ Razorpay has to reach your machine, so expose the dev server with a tunnel, e.g.
 `cloudflared tunnel --url http://localhost:8000` (or ngrok), then in the Razorpay dashboard
 (Test Mode) add a webhook to `https://<tunnel-host>/webhooks/razorpay/` with events
 `payment.authorized`, `payment.captured`, `payment.failed`, `payment_link.paid`,
-`payment_link.partially_paid`, `payment_link.expired`, `payment_link.cancelled`, and put the
-same secret in `RAZORPAY_WEBHOOK_SECRET`.
+`payment_link.partially_paid`, `payment_link.expired`, `payment_link.cancelled`,
+`refund.processed`, `refund.failed`, and put the same secret in `RAZORPAY_WEBHOOK_SECRET`.
 
 Stuck events can be replayed: `python manage.py replay_webhooks --unprocessed --sync`.
+
+### Reconciliation
+
+`python manage.py reconcile --date 2026-10-01` (default: yesterday). With Redis and Celery Beat
+running, it runs automatically at 02:00 IST. Issues show up in Django Admin → Reconciliation
+issues, with a "resolve" action that requires a note.
 
 ## Tests
 
@@ -78,10 +95,16 @@ GET    /api/v1/services/
 GET    /api/v1/invoices/?status=&date=
 POST   /api/v1/invoices/              create draft
 PATCH  /api/v1/invoices/{id}/         edit draft (send `version` to detect conflicts)
-GET    /api/v1/invoices/{id}/         includes payments + payment attempts
+GET    /api/v1/invoices/{id}/         includes payments, payment attempts, refunds
 POST   /api/v1/invoices/{id}/issue/
 POST   /api/v1/invoices/{id}/cancel/  {"reason": "..."}; manager-only once issued
 POST   /api/v1/invoices/{id}/collect/ Idempotency-Key header; optional {"amount_paise": n}
+POST   /api/v1/invoices/{id}/cash/    Idempotency-Key header; optional {"amount_paise": n}
+POST   /api/v1/payments/{id}/refunds/ {"amount_paise": n, "reason": "..."}
+GET    /api/v1/refunds/?status=requested   the managers' approval queue
+POST   /api/v1/refunds/{id}/approve/  manager only
+POST   /api/v1/refunds/{id}/reject/   manager only, {"note": "..."}
+GET    /api/v1/reports/daily-collection/?date=YYYY-MM-DD
 POST   /webhooks/razorpay/            Razorpay only (HMAC-verified)
 GET    /healthz
 ```
