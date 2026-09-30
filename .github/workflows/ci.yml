@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: centrepay
+          POSTGRES_PASSWORD: centrepay
+          POSTGRES_DB: centrepay
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U centrepay"
+          --health-interval 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://centrepay:centrepay@localhost:5432/centrepay
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Migrations are up to date
+        run: python manage.py makemigrations --check --dry-run --settings=config.settings.test
+      - name: Tests
+        run: pytest --cov=apps --cov-report=term-missing
