@@ -1,7 +1,7 @@
 """Real concurrency: threads with their own DB connections, against Postgres.
 
 SQLite has no row locks, so these are skipped there. CI runs them on Postgres;
-locally: `python scripts/local_postgres.py` then set DATABASE_URL (see README).
+locally: `python scripts/local_postgres.py` and DATABASE_URL in .env (see README).
 """
 
 import threading

@@ -84,12 +84,19 @@ CI runs all of this on every push, with the backend on Postgres 16.
 
 ```bash
 cd backend
-python scripts/local_postgres.py   # prints postgresql://postgres:@127.0.0.1:<port>/postgres
+python scripts/local_postgres.py          # start (creates the cluster + centrepay_dev once)
+python scripts/local_postgres.py status   # / stop
 ```
 
-Use that URL as `DATABASE_URL` for tests (they create their own `test_*` database), or
-replace `/postgres` with `/centrepay_dev` for the dev server (create that database once).
-With Docker: `docker compose up`.
+It always listens on **127.0.0.1:54329** (no password), so put this in the repo-root `.env`:
+
+```
+DATABASE_URL=postgresql://postgres@127.0.0.1:54329/centrepay_dev
+```
+
+Then `migrate`, `seed` and `runserver` use Postgres, and `pytest` runs every test, including
+the concurrency ones, in its own throwaway `test_centrepay_dev` database. After a PC
+restart, just run the script again. With Docker instead: `docker compose up`.
 
 ### Settings
 

@@ -151,7 +151,7 @@ by a partial unique index on (kind, gateway_ref) while open, so re-runs are safe
 | `apps/reports/views.py` | Day-close report |
 | `apps/sandbox/` | Fake gateway: state tables, Razorpay-shaped client, payment page, webhook delivery |
 | `tests/` | pytest; `test_concurrency.py` needs Postgres (threads + real row locks) |
-| `scripts/local_postgres.py` | Throwaway Postgres without Docker (Windows) |
+| `scripts/local_postgres.py` | Local Postgres without Docker on a fixed port (start/stop/status) |
 | `bin/start-web.sh`, `bin/start-worker.sh` | Process entry points for Render/Docker |
 
 ### Mobile (`mobile/`)
