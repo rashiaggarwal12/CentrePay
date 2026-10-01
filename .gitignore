@@ -11,3 +11,8 @@ backend/staticfiles/
 node_modules/
 .expo/
 .DS_Store
+
+# Personal notes: kept locally, not published
+PROJECT_SPEC.md
+docs/demo-script.md
+mobile/AGENTS.md

@@ -1,8 +1,6 @@
 # Decisions log
 
-Short notes on why each choice was made. The spec (section 18) lists more topics to write up
-as the build progresses; the entries below cover choices made while implementing week 1 that
-the spec left open.
+Short notes on why each design choice was made, and what it protects against.
 
 ## Invoice numbers are assigned on issue, not on create
 GST requires invoice numbers to be consecutive and without gaps. Drafts get abandoned or

@@ -76,7 +76,7 @@ settings.
    `RAZORPAY_WEBHOOK_SECRET`.
 3. Make a test payment. In Django Admin → Webhook events, open each event, copy its
    `raw_payload` into `backend/tests/fixtures/razorpay/<event>.json`, and point the webhook
-   tests at them (spec section 14: tests on recorded real payloads).
+   tests at them, so they run on recorded real payloads, not hand-built ones.
 4. Verify the settlement check against a real settlement (`python manage.py reconcile`
    two days after a test payment). The sandbox follows Razorpay's documented format, but
    that hasn't been confirmed against real data yet.

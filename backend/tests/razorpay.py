@@ -2,7 +2,7 @@
 
 Shapes follow Razorpay's documented webhook payloads (payment.*, payment_link.*).
 TODO: once test-mode keys are set up, replace these with recorded real payloads in
-tests/fixtures/razorpay/ (spec section 14) and keep these builders for variations.
+tests/fixtures/razorpay/ and keep these builders for variations.
 """
 
 import hashlib

@@ -1,6 +1,6 @@
 # Failure modes
 
-Every payment edge case from the spec (section 8), how it's handled, and the test that proves it.
+Every payment edge case the system is designed for, how it's handled, and the test that proves it.
 Concurrency tests (marked †) only run on Postgres; SQLite has no row locks.
 
 | # | Scenario | Handling | Test | Status |

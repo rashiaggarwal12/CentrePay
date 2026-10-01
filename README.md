@@ -23,14 +23,14 @@ Most billing demos only work on the happy path. This one is built around the fai
 | The gateway's settlement doesn't match our records | The nightly job raises an issue with expected vs actual |
 | A double tap on "Collect", or a timeout after the gateway already acted | Idempotency key plus a gateway-side `reference_id`/`receipt`; never two links or two refunds |
 
-Each of the 13 edge cases in the spec has a named test:
+Each of the 13 core payment edge cases has a named test:
 **[docs/failure-modes.md](docs/failure-modes.md)**.
 
 ## By the numbers
 
 - **229 backend tests**, 92% coverage, run on PostgreSQL 16, including thread-based races
   against real row locks. **36 mobile unit tests.**
-- **13/13** spec failure scenarios covered, plus 12 found while building.
+- **13/13** core failure scenarios covered, plus 12 more found while building.
 - Money is **integer paise** end to end, with DB check constraints on every total, and an
   **append-only ledger** enforced by a Postgres trigger.
 
@@ -52,18 +52,15 @@ python manage.py runserver
   http://localhost:8000/sandbox/, where *Pay* sends properly signed webhooks. It also has
   failure buttons: duplicate webhooks, lost webhooks, short payment, expiry.
 - **Staff app:** see [mobile/README.md](mobile/README.md) (Expo Go on your phone, same Wi-Fi).
-- **API tour:** the [demo script](docs/demo-script.md) walks through everything in 4 minutes.
 
 ## Docs
 
 | | |
 |---|---|
-| [PROJECT_SPEC.md](PROJECT_SPEC.md) | The original design |
 | [docs/architecture.md](docs/architecture.md) | Components, the three core flows, invariants, a file-by-file code tour |
 | [docs/failure-modes.md](docs/failure-modes.md) | Every edge case → how it's handled → its test |
 | [docs/decisions.md](docs/decisions.md) | Why each design choice was made |
 | [docs/deployment.md](docs/deployment.md) | GitHub, Render, Sentry, APK, Razorpay: step by step |
-| [docs/demo-script.md](docs/demo-script.md) | What to show in a demo, in order |
 
 ## Development
 
@@ -153,14 +150,13 @@ Errors always look like `{"error": {"code": "INVALID_TRANSITION", "message": "..
 
 ## Project status
 
-| Week | Scope | State |
-|---|---|---|
-| 1 | Models, auth & roles, customers, services, invoices, state machine | ✅ |
-| 2 | Payment links, webhook receive/process | ✅ |
-| 3 | Refunds, ledger, reconciliation, audit log, day-close report | ✅ |
-| 4 | Expo staff app, all 8 screens | ✅ |
-| 5 | Deploy config (Render blueprint, Docker), Sentry (API + app), CI, seed, docs | ✅ built; the live deploy and APK need accounts: [docs/deployment.md](docs/deployment.md) |
-| 6 | Polish, interview prep | Docs done ([architecture](docs/architecture.md), [demo script](docs/demo-script.md)); demo video to record |
+| Area | State |
+|---|---|
+| Auth & roles, customers, services, invoices, state machine | ✅ |
+| Payment links, webhook receive/process | ✅ |
+| Refunds, ledger, reconciliation, audit log, day-close report | ✅ |
+| Expo staff app (8 screens) | ✅ |
+| CI, Sentry (API + app), Render blueprint, Docker, demo seed data | ✅ built; live deploy and APK: see [docs/deployment.md](docs/deployment.md) |
 
 **Not yet verified against the real world:**
 - **Razorpay test mode:** webhook payloads and the settlement report format follow Razorpay's
