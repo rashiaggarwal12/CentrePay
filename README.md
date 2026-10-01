@@ -7,7 +7,7 @@ built to stay correct when payments go wrong.
 
 Django 5 · DRF · PostgreSQL · Celery + Redis · Razorpay · React Native (Expo) · TypeScript
 
-<!-- After pushing to GitHub: ![CI](https://github.com/<you>/centrepay/actions/workflows/ci.yml/badge.svg) -->
+[![CI](https://github.com/rashiaggarwal12/CentrePay/actions/workflows/ci.yml/badge.svg)](https://github.com/rashiaggarwal12/CentrePay/actions/workflows/ci.yml)
 <!-- After deploying: **Live API:** https://<service>.onrender.com · **Demo APK:** <EAS link> -->
 
 ## What makes it interesting
@@ -115,8 +115,9 @@ python manage.py reconcile --date 2026-10-01      # default: yesterday; Beat run
 python manage.py replay_webhooks --unprocessed --sync
 ```
 
-Django Admin has the reconciliation issue queue (resolve with a note), webhook events
-(replay action), and read-only invoices with their payments and refunds.
+Django Admin has a "Run reconciliation now" button, the reconciliation issue queue (resolve
+with a note), webhook events (replay action), and read-only invoices with their payments and
+refunds.
 
 ## API (v1)
 
@@ -164,3 +165,7 @@ Errors always look like `{"error": {"code": "INVALID_TRANSITION", "message": "..
 - **Real Android device:** the app has been exercised end to end in a phone-sized browser,
   but not on a phone yet.
 - **Docker image:** hasn't been built on the dev machine, which has no Docker.
+
+## Contributors
+
+- **Rashi Aggarwal** ([@rashiaggarwal12](https://github.com/rashiaggarwal12)): design and development

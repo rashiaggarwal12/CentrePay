@@ -249,3 +249,44 @@ def test_daily_collection_report(
     assert other_day["collections"]["total_paise"] == 0
     bad = api_as(desk).get("/api/v1/reports/daily-collection/?date=yesterday")
     assert bad.status_code == 400
+
+
+# --- Admin "Run reconciliation now" (free hosting has no scheduler or shell) ---------------
+
+
+@pytest.fixture
+def superuser_client(client, db):
+    from django.contrib.auth import get_user_model
+
+    admin_user = get_user_model().objects.create_superuser("ops", "ops@example.com", "pw-12345")
+    client.force_login(admin_user)
+    return client
+
+
+def test_admin_can_run_reconciliation(
+    superuser_client, issued_invoice, sandbox_collect, customer_pays, sandbox
+):
+    customer_pays(sandbox_collect(issued_invoice), "pay_lost_webhooks")
+    page = superuser_client.get("/admin/reconciliation/reconciliationrun/")
+    assert b"Run reconciliation now" in page.content
+
+    resp = superuser_client.post(
+        "/admin/reconciliation/reconciliationrun/run/", {"date": today().isoformat()}
+    )
+    assert resp.status_code == 302
+    run = ReconciliationRun.objects.get()
+    assert run.summary["recovered_payments"] == 1
+    assert Invoice.objects.get(pk=issued_invoice.pk).status == InvoiceStatus.PAID
+
+
+def test_run_reconciliation_needs_superuser_and_post(client, superuser_client, db):
+    from django.contrib.auth import get_user_model
+
+    assert superuser_client.get("/admin/reconciliation/reconciliationrun/run/").status_code == 405
+
+    staff = get_user_model().objects.create_user("clerk", password="pw-12345", is_staff=True)
+    other = client.__class__()
+    other.force_login(staff)
+    resp = other.post("/admin/reconciliation/reconciliationrun/run/", {"date": "2026-10-01"})
+    assert resp.status_code == 403
+    assert not ReconciliationRun.objects.exists()

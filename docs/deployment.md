@@ -19,8 +19,7 @@ tests on Postgres 16; mobile typecheck, lint and tests. Add the badge to the REA
 
 1. Sign up at render.com with your GitHub account.
 2. **New → Blueprint**, pick the repo. Render reads `render.yaml` and proposes: `centrepay-api`
-   (web), `centrepay-worker` (Celery + Beat), `centrepay-redis` (Key Value), and `centrepay-db`
-   (Postgres).
+   (web), `centrepay-redis` (Key Value) and `centrepay-db` (Postgres), all on free plans.
 3. It asks for the `sync: false` values:
    - `SEED_ADMIN_PASSWORD`: a strong password for the `admin` Django Admin user.
    - `SENTRY_DSN`: from step 3 (can be added later).
@@ -28,10 +27,16 @@ tests on Postgres 16; mobile typecheck, lint and tests. Add the badge to the REA
 4. Deploy. `bin/start-web.sh` runs migrations, seeds demo data (`SEED_DEMO_DATA=true`) and
    starts gunicorn. Check `https://<your-service>.onrender.com/healthz` returns `{"status": "ok"}`.
 
-**Free-only option:** the worker has no free plan. Delete the `centrepay-worker` block from
-`render.yaml` and set `CELERY_TASK_ALWAYS_EAGER=true` on the web service. Webhooks and refund
-calls then run inside the request (still correct, just slower). Run
-`python manage.py reconcile` from the web service's Shell tab when you want a reconciliation.
+**Free-tier mode (the default here):** there's no Celery worker; `CELERY_TASK_ALWAYS_EAGER=true`
+runs background tasks inside the web request. There's no nightly scheduler, so run
+reconciliation from **Django Admin → Reconciliation runs → "Run reconciliation now"** (signed in
+as `admin`). Free web services also sleep
+after a period of inactivity, so the first request after a while takes longer.
+
+**Adding a worker later (paid):** add a `type: worker` service with
+`startCommand: sh bin/start-worker.sh` (Celery with Beat: the 02:00 IST reconciliation runs
+automatically), give it the same env vars as the web service, and set
+`CELERY_TASK_ALWAYS_EAGER=false` on the web service.
 
 **After the first deploy:** turn `SEED_DEMO_DATA` off if you don't want demo invoices
 recreated for centres that have none.

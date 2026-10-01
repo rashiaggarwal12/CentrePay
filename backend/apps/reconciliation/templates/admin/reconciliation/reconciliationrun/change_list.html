@@ -1,0 +1,17 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+  {% if request.user.is_superuser %}
+  <form method="post" action="{% url 'admin:reconciliation_run_now' %}"
+        style="margin: 0 0 16px; padding: 12px 16px; border: 1px solid var(--hairline-color); border-radius: 4px;">
+    {% csrf_token %}
+    <strong>Run reconciliation now</strong>
+    <span style="color: var(--body-quiet-color); margin: 0 8px;">
+      compares the gateway with our records for one day (IST); safe to run more than once
+    </span>
+    <input type="date" name="date" value="{% now 'Y-m-d' %}" required>
+    <input type="submit" value="Run" class="default" style="margin-left: 8px;">
+  </form>
+  {% endif %}
+  {{ block.super }}
+{% endblock %}
